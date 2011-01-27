@@ -113,7 +113,7 @@ namespace dsock {
     fd_set *l_readsetptr, *l_exceptionsetptr;
 
     int l_retval;
-    TimeVal_t l_spenttime, l_tvcurr, l_tvprev, l_extratime, l_selecttime;
+    TimeVal_t l_spenttime, l_tvcurr, l_tvprev, l_extratime, l_selecttime, l_afterselect;
     struct timeval *l_tvptr, l_tvselect;
     alarmlist_t::iterator l_alarmit;
 
@@ -185,19 +185,8 @@ namespace dsock {
 	l_tvptr = NULL;
       }
 
-      // Record time after calculations as last time
-      // FIXME: djr
-      // Shouldn't it be better: l_tvprev.GetTimeOfDay();
-      //l_tvprev = l_tvcurr;
-      l_tvprev.GetTimeOfDay();
-    
-#if 0
-      l_retval = ::select( 8*sizeof( l_readset),
-			   &l_readset, NULL, &l_exceptionset,
-			   l_tvptr);
-#else
       size_t l_maxsocket;
-      if( m_iotask.size() > 0) {
+      if( m_iotask.empty() == false) {
 	l_maxsocket = Socket_t::MaxHandle().GetHandle();
 	l_readsetptr = &l_readset;
 	l_exceptionsetptr = &l_exceptionset;
@@ -206,10 +195,14 @@ namespace dsock {
 	l_readsetptr = NULL;
 	l_exceptionsetptr = NULL;
       }
+
+      // Record the time before the select wait
+      l_tvprev.GetTimeOfDay();
+
+      // Engage
       l_retval = ::select( Socket_t::MaxHandle().GetHandle(),
 			   l_readsetptr, NULL, l_exceptionsetptr,
 			   l_tvptr);
-#endif
 
       // now handle return value
       if( l_retval < 0) {
@@ -218,11 +211,15 @@ namespace dsock {
 	continue;
       }
 
-      if( l_retval == 0) {
-	// Time out ... Alarm must be served
-	Alarm_t &l_alarmfront = m_alarm.front();
+      // See how much time has elapsed
+      l_afterselect.GetTimeOfDay();
+      TimeVal_t l_inselect = l_afterselect - l_tvprev;
 
-	l_alarmfront.Reset();
+      if( l_retval == 0 ||
+          (m_alarm.empty() == false && l_selecttime < l_inselect)) {
+	// Time out ... Alarm must be served
+        // time out can be signalled or calculated
+	Alarm_t &l_alarmfront = m_alarm.front();
 
 	if( l_alarmfront.Periodic())
 	  m_alarmtask[ l_alarmfront.Id()]->HeartBeat( l_alarmfront);
@@ -230,24 +227,24 @@ namespace dsock {
 	  m_alarmtask[ l_alarmfront.Id()]->Timeout( l_alarmfront);
 
 	l_alarmfront.SetServed( true);
-
-	continue;
       }
 
-      IoHandle_t l_handle;
-      iotaskmap_t::iterator l_ioit;
-      for( l_ioit = m_iotask.begin(); l_ioit != m_iotask.end(); l_ioit++) {
-	l_handle = (*l_ioit).first.GetHandle();
+      if(l_retval != 0) {
+        IoHandle_t l_handle;
+        iotaskmap_t::iterator l_ioit;
+        for( l_ioit = m_iotask.begin(); l_ioit != m_iotask.end(); l_ioit++) {
+          l_handle = (*l_ioit).first.GetHandle();
 
-	if( FD_ISSET( l_handle, &l_exceptionset)) {
-	  (*l_ioit).second->IoException( (*l_ioit).first);
-	  break;
-	}
+          if( FD_ISSET( l_handle, &l_exceptionset)) {
+            (*l_ioit).second->IoException( (*l_ioit).first);
+            break;
+          }
 
-	if( FD_ISSET( l_handle, &l_readset)) {
-	  (*l_ioit).second->IoRead( (*l_ioit).first);
-	  break;
-	}
+          if( FD_ISSET( l_handle, &l_readset)) {
+            (*l_ioit).second->IoRead( (*l_ioit).first);
+            break;
+          }
+        }
       }
     }
   }
