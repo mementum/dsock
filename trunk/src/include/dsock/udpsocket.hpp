@@ -41,6 +41,8 @@ namespace dsock {
       Socket_t( p_iaddr, "udp", p_server) {}
 
     virtual ~UdpSocket_t( void) {}
+
+    virtual ssize_t Read(char *p_buf, size_t p_len);
   };
 
 

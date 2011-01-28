@@ -42,6 +42,8 @@ namespace dsock {
     }
 
     virtual ~TcpSocket_t( void) {}
+
+    virtual ssize_t Read(char *p_buf, size_t p_len);
     
     virtual bool TcpNoDelay( bool p_onoff) {
       return ::setsockopt( m_handle, IPPROTO_TCP, TCP_NODELAY,
