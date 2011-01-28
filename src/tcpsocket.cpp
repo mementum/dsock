@@ -27,6 +27,13 @@
 
 namespace dsock {
 
+  ssize_t
+  TcpSocket_t::Read(char *p_buf, size_t p_len) {
+    // Code may be inserted here to handle SSL
+    return ::recv( m_handle, p_buf, p_len, 0);
+  }
+
+
   TcpClientSocket_t
   TcpServerSocket_t::Accept( void) {
     struct sockaddr_in l_sin;
@@ -38,5 +45,4 @@ namespace dsock {
 
     return TcpClientSocket_t( l_handle);
   }
-
 };

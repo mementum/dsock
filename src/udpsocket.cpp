@@ -26,4 +26,19 @@
 
 
 namespace dsock {
+
+  ssize_t
+  UdpSocket_t::Read(char *p_buf, size_t p_len) {
+    struct sockaddr_in l_sin;
+    socklen_t l_sinlen = sizeof( l_sin);
+
+    ssize_t l_retval =
+      ::recvfrom( m_handle, p_buf, p_len, 0, (struct sockaddr *)&l_sin, &l_sinlen);
+    if( l_retval == SOCKET_CONNCLOSED || l_retval == SOCKET_ERROR)
+      return SOCKET_ERROR;
+
+    m_remoteaddr = l_sin;
+
+    return l_retval;
+  }
 };
