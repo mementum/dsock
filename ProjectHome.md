@@ -1,0 +1,1 @@
+DSock is a C++ library working that works under Windows and Linux oriented towards easy management of tasks that work with sockets (client or server)
